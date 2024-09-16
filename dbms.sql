@@ -1,6 +1,6 @@
 --
 --  DBMS administration functions
---  version 0.0 lacanoid@ljudmila.org
+--  version 0.1 lacanoid@ljudmila.org
 --
 ---------------------------------------------------
 
@@ -265,258 +265,14 @@ AS SELECT tab.sql_identifier,
 
 --- JSON update stuff
 
-CREATE OR REPLACE FUNCTION dbms.json_insert(my_regclass regclass, my_json text, extend boolean default false)
- RETURNS bigint
- LANGUAGE plperlu
-AS $function$
-use strict;
-use JSON;
-my ($regclass,$json,$extend)=@_;
-
-my $obj=JSON->new->allow_nonref->decode($json);
-
-if(!defined($obj)) { elog(ERROR,'Empty JSON'); return undef; } 
-if(ref($obj) ne 'ARRAY') { 
-   if(ref($obj) ne 'HASH') {
-	elog(ERROR,'JSON neither ARRAY nor HASH'); return undef; 
-   } else { $obj = [$obj]; }
-}
-
-my $n=0;
-my %nid;
-my %q=(
- 'columns'        => spi_prepare('select * from dbms.pg_get_columns($1)','regclass'),
-);
-
-my %cols;
-if($extend eq 't') {
- my $cols = spi_exec_prepared($q{'columns'},$regclass)->{rows};
- for my $i (@{$cols}) { 
-  $cols{$i->{'name'}}=$i; 
-  # elog(NOTICE,Dumper($i)); 
- }
-}
-
-for my $i (@{$obj}) {
-  my @keys;
-  my @vals;
-  # check if pkey for record is defined
-  # make update statement
-  for my $j (sort(keys(%{$i}))) {
-    if($extend eq 't' && !defined($cols{$j})) {
-       $cols{$j}={};
-       my $ddl="ALTER TABLE $regclass ADD ".(quote_ident($j))." text";
-       elog(NOTICE,$ddl);
-       spi_exec_query($ddl);
-    }
-    push @keys,quote_ident($j);
-    push @vals,quote_nullable($i->{$j});
-  }
-  if(@vals) {
-    my $keys = join(', ',@keys);
-    my $vals = join(', ',@vals);
-    my $sql="INSERT INTO $regclass ($keys) VALUES ($vals)";
-    elog(NOTICE,$sql);
-    my $rv=spi_exec_query($sql);
-    $n++;
-  }
-}
-return $n;
-
-$function$
-;
-
--- DROP FUNCTION dbms.json_save(regclass, text, bool);
-
-CREATE OR REPLACE FUNCTION dbms.json_save(my_regclass regclass, my_json text, extend boolean)
- RETURNS bigint
- LANGUAGE plperlu
-AS $function$
-use strict;
-use JSON;
-my ($regclass,$json,$extend)=@_;
-
-my $obj=JSON->new->allow_nonref->decode($json);
-
-if(!defined($obj)) { elog(ERROR,'Empty JSON'); return undef; } 
-if(ref($obj) ne 'ARRAY') { 
-   if(ref($obj) ne 'HASH') {
-	elog(ERROR,'JSON neither ARRAY no HASH'); return undef; 
-   } else { $obj = [$obj]; }
-}
-
-my $n=0;
-my %nid;
-my %q=(
- 'primary key'    => spi_prepare('select * from unnest(dbms.primary_key($1)) as name','regclass'),
- 'columns'        => spi_prepare('select * from dbms.pg_get_columns($1)','regclass'),
-);
-
-my %cols;
-if($extend eq 't') {
- my $cols = spi_exec_prepared($q{'columns'},$regclass)->{rows};
- for my $i (@{$cols}) { 
-  $cols{$i->{'name'}}=$i; 
-  # elog(NOTICE,Dumper($i)); 
- }
-}
-my @pkey;
-my $pkey = spi_exec_prepared($q{'primary key'},$regclass)->{rows};
-for my $i (@{$pkey}) {
-  push @pkey,$i->{'name'};
-}
-unless(@pkey) {
-  elog(ERROR,'no primary key');
-}
-
-for my $i (@{$obj}) {
-  my @cond;
-  my @keys;
-  my @vals;
-  # check if pkey for record is defined
-  for my $j (@pkey) {
-    if(!defined($i->{$j})) {
-      elog(WARNING,"No primary key in JSON! Skiping record.");
-      last;
-    } else {
-      push @cond,quote_ident($j).'='.quote_nullable($i->{$j});
-    }
-  }
-  # make update statement
-  for my $j (sort(keys(%{$i}))) {
-    if($extend eq 't' && !defined($cols{$j})) {
-       $cols{$j}={};
-       my $ddl="ALTER TABLE $regclass ADD ".(quote_ident($j))." text";
-       elog(NOTICE,$ddl);
-       spi_exec_query($ddl);
-    }
-    push @keys,quote_ident($j);
-    push @vals,quote_nullable($i->{$j});
-  }
-  if(@cond && @vals) {
-    my $keys = join(', ',@keys);
-    my $vals = join(', ',@vals);
-    my $sql="UPDATE $regclass SET ($keys) = ($vals) WHERE ".join(' AND ',@cond);
-    elog(NOTICE,$sql);
-    my $rv=spi_exec_query($sql);
-    $n+=$rv->{processed};
-    if($rv->{processed}==0) {
-      my $sql2="INSERT INTO $regclass ($keys) VALUES ($vals)";
-      elog(NOTICE,$sql2);
-      my $rv=spi_exec_query($sql2);
-      $n++;
-    }
-  }
-}
-return $n;
-
-$function$
-;
-
--- DROP FUNCTION dbms.json_save2(regclass, text, bool);
-
-CREATE OR REPLACE FUNCTION dbms.json_save2(my_regclass regclass, my_json text, extend boolean default false)
- RETURNS bigint
- LANGUAGE plperlu
-AS $function$
-use strict;
-use JSON;
-my ($regclass,$json,$extend)=@_;
-
-my $obj=JSON->new->allow_nonref->decode($json);
-
-if(!defined($obj)) { elog(ERROR,'Empty JSON'); return undef; } 
-if(ref($obj) ne 'ARRAY') { 
-   if(ref($obj) ne 'HASH') {
-	elog(ERROR,'JSON neither ARRAY no HASH'); return undef; 
-   } else { $obj = [$obj]; }
-}
-
-my $n=0;
-my %nid;
-my %q=(
- 'primary key'    => spi_prepare('select * from unnest(dbms.primary_key($1)) as name','regclass'),
- 'unique keys'    => spi_prepare('select * from dbms.unique_keys where sysid=$1','regclass'),
- 'columns'        => spi_prepare('select * from dbms.pg_get_columns($1)','regclass'),
-);
-
-my %cols;
-if($extend eq 't') {
- my $cols = spi_exec_prepared($q{'columns'},$regclass)->{rows};
- for my $i (@{$cols}) { 
-  $cols{$i->{'name'}}=$i; 
- }
-}
-my $pkey;
-my @ukey;
-my $ukeys = spi_exec_prepared($q{'unique keys'},$regclass)->{rows};
-for my $i (@{$ukeys}) {
-  if($i->{'constraint_type'} eq 'PRIMARY KEY') { $pkey = [@{$i->{'attribute_names'}}]; } 
-  else { push @ukey, [@{$i->{'attribute_names'}}]; }
-}
-unshift @ukey,$pkey;
-unless(@ukey) {
-  elog(ERROR,'no primary or unique key');
-}
-
-for my $i (@{$obj}) {
-  my @cond;
-  my @keys;
-  my @vals;
-  # check if pkey for record is defined
-  for my $conf (@ukey) {
-    for my $a (@{$conf}) {
-      if(!defined($i->{$a})) {
-        undef(@cond); last;
-      } else {
-        push @cond,quote_ident($a).'='.quote_nullable($i->{$a});
-      }
-    }
-    if(@cond) { last; }
-  }
-  if(!@cond) {
-    elog(WARNING,"No unique key in JSON! Skiping record.");
-  }
-  # make update statement
-  for my $j (sort(keys(%{$i}))) {
-    if($extend eq 't' && !defined($cols{$j})) {
-      # add new columns in needed
-       $cols{$j}={};
-       my $ddl="ALTER TABLE $regclass ADD ".(quote_ident($j))." text";
-       elog(NOTICE,$ddl);
-       spi_exec_query($ddl);
-    }
-    push @keys,quote_ident($j);
-    push @vals,quote_nullable($i->{$j});
-  }
-  if(@cond && @vals) {
-    my $keys = join(', ',@keys);
-    my $vals = join(', ',@vals);
-    my $sql="UPDATE $regclass SET ($keys) = ($vals) WHERE ".join(' AND ',@cond);
-    elog(NOTICE,$sql);
-    my $rv=spi_exec_query($sql);
-    $n+=$rv->{processed};
-    if($rv->{processed}==0) {
-      my $sql2="INSERT INTO $regclass ($keys) VALUES ($vals)";
-      elog(NOTICE,$sql2);
-      my $rv=spi_exec_query($sql2);
-      $n++;
-    }
-  }
-}
-return $n;
-$function$
-;
-
--- DROP FUNCTION dbms.json_save3(regclass, text, bool, bool);
-
-CREATE OR REPLACE FUNCTION dbms.json_save3(my_regclass regclass, my_json text, do_insert boolean DEFAULT true, do_extend boolean DEFAULT false)
+CREATE OR REPLACE FUNCTION dbms.json_save(my_regclass regclass, my_json text, do_insert boolean DEFAULT true, do_extend boolean DEFAULT false)
  RETURNS bigint
  LANGUAGE plperlu
 AS $function$
 use strict;
 use JSON;
 my ($regclass,$json,$do_insert,$extend)=@_;
+my $action='u';
 
 my $obj=JSON->new->allow_nonref->decode($json);
 
@@ -552,7 +308,8 @@ for my $i (@{$ukeys}) {
 }
 unshift @ukey,$pkey;
 unless(@ukey) {
-  elog(ERROR,'no primary or unique key');
+  if($do_insert eq 't') { $action='i'; }
+  else { elog(ERROR,"no primary or unique keys on table $regclass"); }
 }
 
 for my $i (@{$obj}) {
@@ -571,9 +328,10 @@ for my $i (@{$obj}) {
     if(@cond) { last; }
   }
   if(!@cond) {
-    elog(WARNING,"No unique key in JSON! Skiping record.");
+    if($do_insert eq 't') { $action='i'; }
+    else {elog(WARNING,"No unique key in JSON! Skiping record for update.");}
   }
-  # make update statement
+  # scan columns
   for my $j (sort(keys(%{$i}))) {
     if($extend eq 't' && !defined($cols{$j})) {
       # add new columns in needed
@@ -585,25 +343,26 @@ for my $i (@{$obj}) {
     push @keys,quote_ident($j);
     push @vals,quote_nullable($i->{$j});
   }
-  if(@cond && @vals) {
+  # make update statement
+  if(@vals) {
     my $keys = join(', ',@keys);
     my $vals = join(', ',@vals);
-    my $sql="UPDATE $regclass SET ($keys) = ($vals) WHERE ".join(' AND ',@cond);
-    elog(NOTICE,$sql);
-    my $rv=spi_exec_query($sql);
-    $n+=$rv->{processed};
-    if($rv->{processed}==0) {
-	  if($do_insert eq 't') {
+    if($action eq 'u' && @cond) {
+      my $sql="UPDATE $regclass SET ($keys) = ($vals) WHERE ".join(' AND ',@cond);
+      elog(NOTICE,$sql);
+      my $rv=spi_exec_query($sql);
+      $n+=$rv->{processed};
+      if($rv->{processed}==0) { $action='i'; } # no update, try insert 
+    }
+    if($action eq 'i' && $do_insert eq 't') {
         my $sql2="INSERT INTO $regclass ($keys) VALUES ($vals)";
         elog(NOTICE,$sql2);
         my $rv=spi_exec_query($sql2);
         $n++;
-      }
     }
   }
-}
+} # for $i
 return $n;
-
 $function$
 ;
 

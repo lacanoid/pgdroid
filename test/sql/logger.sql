@@ -14,18 +14,24 @@ update foo set label = 'Even more new value';
 select relid,usename,pkey,old_data,new_data 
   from dbms.dml_log order by ctime;
 
-select dbms.json_insert('foo', '{"id":-1,"label":"Deuxieme labelle"}', true);
-select dbms.json_insert('foo', '{"id":-2,"label":"Troixeme labelle","sublabel":"Ca ira ..."}', true);
+select dbms.json_save('foo', '{"id":-1,"label":"Deuxieme labelle"}', true, true);
+select dbms.json_save('foo', '{"id":-2,"label":"Troixeme labelle","sublabel":"Ca ira ..."}', true, true);
 
 select dbms.json_save('foo', '{"id":-3,"label":"Number 4","sublabel":"...."}', true);
 select dbms.json_save('foo', '{"id":-3,"label":"Number 5","sublabel":"12345"}', true);
 
-select dbms.json_save2('foo', '{"id":-3,"label":"Number 6","sublabel":"......"}', true);
-select dbms.json_save2('foo', '{"id":-3,"label":"Number 7","sublabel":"1234567"}', true);
+select dbms.json_save('foo', '{"id":-3,"label":"Number 6","sublabel":"......"}', false, true);
+select dbms.json_save('foo', '{"id":-3,"label":"Number 7","sublabel":"1234567"}', false, true);
 
-select dbms.json_insert('foo', '{"label":"Krneki","type":"improved"}',true);
-select dbms.json_save2('foo', '{"id":2, "label":"Xrneki","type":"improved+","sublabel":"that"}',true);
-#select dbms.json_save2('foo', '{"id":2, "label":"Zrneki","type":"+improved+","sublabel":"that","types":["obi","wan","kenobi"]}',true); --broken
+select dbms.json_save('foo', '{"label":"Krneki","type":"improved"}',true,true);
+select dbms.json_save('foo', '{"id":2, "label":"Xrneki","type":"improved+","sublabel":"that"}',false,true);
+-- select dbms.json_save('foo', '{"id":2, "label":"Zrneki","type":"+improved+","sublabel":"that","types":["obi","wan","kenobi"]}',true); --broken
+
+select dbms.json_save('foo', '{"label":"json_save3 test"}',true);
+select dbms.json_save('foo', '{"id":3,"label":"json_save3 test ++"}',true);
+select dbms.json_save('foo', '{"id":3,"label":"json_save3 test +++","subtype":"extra"}',true,true);
+
+select id,label from foo;
 
 select relid,usename,pkey,old_data,new_data from dbms.dml_log;
 
