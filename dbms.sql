@@ -5,12 +5,13 @@
 ---------------------------------------------------
 
 SET client_min_messages = warning;
+SET search_path = dbms;
 
 ---------------------------------------------------
 
--- DROP FUNCTION dbms.notice_ddl();
+-- DROP FUNCTION notice_ddl();
 
-CREATE TABLE IF NOT EXISTS dbms.ddl_log (
+CREATE TABLE IF NOT EXISTS ddl_log (
 	ts timestamptz NULL,
 	"role" text NULL,
 	inet inet NULL,
@@ -22,7 +23,7 @@ CREATE TABLE IF NOT EXISTS dbms.ddl_log (
 
 -- atom.audit definition
 
-CREATE TABLE IF NOT EXISTS dbms.dml_log (
+CREATE TABLE IF NOT EXISTS dml_log (
 	txid int8 DEFAULT txid_current() NULL,
 	relid regclass NULL,
 	ctime timestamp DEFAULT now() NULL,
@@ -33,11 +34,11 @@ CREATE TABLE IF NOT EXISTS dbms.dml_log (
 	new_data jsonb NULL,
 	seq serial4 NOT NULL
 );
-CREATE INDEX audit_ctime_idx ON dbms.dml_log USING btree (ctime)
+CREATE INDEX audit_ctime_idx ON dml_log USING btree (ctime)
 ;
 
 ---
-CREATE OR REPLACE FUNCTION dbms.trigger_ddl()
+CREATE OR REPLACE FUNCTION trigger_ddl()
  RETURNS event_trigger
  LANGUAGE plpgsql
 AS $function$
@@ -78,7 +79,7 @@ CREATE EVENT TRIGGER ddl_log ON ddl_command_end
 
 -------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION dbms.trigger_dml()
+CREATE OR REPLACE FUNCTION trigger_dml()
  RETURNS trigger
  LANGUAGE plperlu
 AS $function$
@@ -119,9 +120,9 @@ spi_exec_prepared($p,$regclass,encode_json($key),$old_data,$new_data);
 return;
 $function$
 ;
--- DROP FUNCTION dbms.attribute_names(regclass, _int2);
+-- DROP FUNCTION attribute_names(regclass, _int2);
 
-CREATE OR REPLACE FUNCTION dbms.attribute_names(regclass, smallint[])
+CREATE OR REPLACE FUNCTION attribute_names(regclass, smallint[])
  RETURNS name[]
  LANGUAGE sql
  STABLE
@@ -136,9 +137,9 @@ from (
 ) as n
 $function$
 ;
--- DROP FUNCTION dbms.attribute_types(regclass, _int2);
+-- DROP FUNCTION attribute_types(regclass, _int2);
 
-CREATE OR REPLACE FUNCTION dbms.attribute_types(regclass, smallint[])
+CREATE OR REPLACE FUNCTION attribute_types(regclass, smallint[])
  RETURNS text[]
  LANGUAGE sql
  STABLE
@@ -156,7 +157,7 @@ $function$
 ;
 
 
-CREATE OR REPLACE VIEW dbms.unique_keys
+CREATE OR REPLACE VIEW unique_keys
 AS SELECT s.nspname AS table_schema,
     c.relname AS table_name,
     c2.conname AS constraint_name,
@@ -165,8 +166,8 @@ AS SELECT s.nspname AS table_schema,
             WHEN 'u'::"char" THEN 'UNIQUE'::text
             ELSE NULL::text
         END AS constraint_type,
-    dbms.attribute_names(c.oid::regclass, c2.conkey) AS attribute_names,
-    dbms.attribute_types(c.oid::regclass, c2.conkey) AS attribute_types,
+    attribute_names(c.oid::regclass, c2.conkey) AS attribute_names,
+    attribute_types(c.oid::regclass, c2.conkey) AS attribute_types,
     c.oid AS sysid
    FROM pg_constraint c2
      JOIN pg_class c ON c.oid = c2.conrelid
@@ -175,7 +176,7 @@ AS SELECT s.nspname AS table_schema,
   WHERE (c.relkind = ANY (ARRAY['r'::"char", 'v'::"char", ''::"char"])) AND (c2.contype = ANY (ARRAY['p'::"char", 'u'::"char"]))
 ;
 
-CREATE OR REPLACE FUNCTION dbms.primary_key(my_class regclass)
+CREATE OR REPLACE FUNCTION primary_key(my_class regclass)
  RETURNS name[]
  LANGUAGE sql
 AS $function$
@@ -187,16 +188,16 @@ select attribute_names
 ;
 ------------------------------------------------------
 
-CREATE DOMAIN dbms."sql_identifier" AS character varying
+CREATE DOMAIN "sql_identifier" AS character varying
 	COLLATE "default";
-COMMENT ON TYPE dbms."sql_identifier" IS 'SQL object identifier';
+COMMENT ON TYPE "sql_identifier" IS 'SQL object identifier';
 
 
-CREATE OR REPLACE FUNCTION dbms.pg_get_columns(regclass, 
+CREATE OR REPLACE FUNCTION pg_get_columns(regclass, 
 OUT namespace name, OUT class_name name, OUT name name, 
 OUT ord smallint, OUT type text, OUT size integer, OUT not_null boolean, 
 OUT "default" text, OUT comment text, OUT primary_key name, OUT ndims integer, 
-OUT is_local boolean, OUT storage text, OUT sql_identifier dbms.sql_identifier,
+OUT is_local boolean, OUT storage text, OUT sql_identifier sql_identifier,
  OUT nuls boolean, OUT regclass oid, OUT definition text)
  RETURNS SETOF record
  LANGUAGE sql
@@ -248,7 +249,7 @@ AS $function$
 $function$
 ;
 
-CREATE OR REPLACE VIEW dbms.catalog_usage
+CREATE OR REPLACE VIEW catalog_usage
 AS SELECT tab.sql_identifier,
     pg_relation_size(tab.sql_identifier::regclass) AS pg_relation_size,
     pg_total_relation_size(tab.sql_identifier::regclass) AS pg_total_relation_size,
@@ -265,7 +266,7 @@ AS SELECT tab.sql_identifier,
 
 --- JSON update stuff
 
-CREATE OR REPLACE FUNCTION dbms.json_save(my_regclass regclass, my_json text, do_insert boolean DEFAULT true, do_extend boolean DEFAULT false)
+CREATE OR REPLACE FUNCTION json_save(my_regclass regclass, my_json text, do_insert boolean DEFAULT true, do_extend boolean DEFAULT false)
  RETURNS bigint
  LANGUAGE plperlu
 AS $function$
@@ -366,7 +367,7 @@ return $n;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION dbms.get_proc_info(namespace text, name text, OUT sysid oid, OUT sql_identifier text, OUT argnames text[], OUT argtypes text[], OUT comment text, OUT has_http_acl boolean)
+CREATE OR REPLACE FUNCTION get_proc_info(namespace text, name text, OUT sysid oid, OUT sql_identifier text, OUT argnames text[], OUT argtypes text[], OUT comment text, OUT has_http_acl boolean)
  RETURNS record
  LANGUAGE plpgsql
 AS $function$
@@ -377,7 +378,7 @@ declare
 begin
 
  begin
-   sysid := regproc(oordbms.sql_identifier(namespace,name))::oid;
+   sysid := regproc(dbms.sql_identifier(namespace,name))::oid;
    sql_identifier := regproc(sysid)::text;
  exception when others then
    return;

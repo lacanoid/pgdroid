@@ -3,18 +3,18 @@ NOTICE:  installing required extension "plperlu"
 \pset tuples_only
 \dx+ dbms
  event trigger ddl_log
- function dbms.attribute_names(regclass,smallint[])
- function dbms.attribute_types(regclass,smallint[])
- function dbms.get_proc_info(text,text)
- function dbms.json_save(regclass,text,boolean,boolean)
- function dbms.pg_get_columns(regclass)
- function dbms.primary_key(regclass)
- function dbms.trigger_ddl()
- function dbms.trigger_dml()
- sequence dbms.dml_log_seq_seq
- table dbms.ddl_log
- table dbms.dml_log
- type dbms.sql_identifier
- view dbms.catalog_usage
- view dbms.unique_keys
+ function attribute_names(regclass,smallint[])
+ function attribute_types(regclass,smallint[])
+ function get_proc_info(text,text)
+ function json_save(regclass,text,boolean,boolean)
+ function pg_get_columns(regclass)
+ function primary_key(regclass)
+ function trigger_ddl()
+ function trigger_dml()
+ sequence dml_log_seq_seq
+ table ddl_log
+ table dml_log
+ type sql_identifier
+ view catalog_usage
+ view unique_keys
 
