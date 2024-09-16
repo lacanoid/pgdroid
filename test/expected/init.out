@@ -1,8 +1,9 @@
 CREATE EXTENSION dbms cascade;
+NOTICE:  installing required extension "plperl"
 NOTICE:  installing required extension "plperlu"
 \pset tuples_only
 \dx+ dbms
- event trigger ddl_log
+ event trigger log_ddl
  function attribute_names(regclass,smallint[])
  function attribute_types(regclass,smallint[])
  function describe(regclass)
@@ -11,9 +12,9 @@ NOTICE:  installing required extension "plperlu"
  function primary_key(regclass)
  function trigger_ddl()
  function trigger_dml()
- sequence dml_log_seq_seq
- table ddl_log
- table dml_log
+ sequence log_dml_seq_seq
+ table log_ddl
+ table log_dml
  type sql_identifier
  view catalog_usage
  view unique_keys

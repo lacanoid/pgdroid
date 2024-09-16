@@ -11,7 +11,7 @@ SET search_path = dbms;
 
 -- DROP FUNCTION notice_ddl();
 
-CREATE TABLE IF NOT EXISTS ddl_log (
+CREATE TABLE IF NOT EXISTS log_ddl (
 	ts timestamptz NULL,
 	"role" text NULL,
 	inet inet NULL,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS ddl_log (
 
 -- atom.audit definition
 
-CREATE TABLE IF NOT EXISTS dml_log (
+CREATE TABLE IF NOT EXISTS log_dml (
 	txid int8 DEFAULT txid_current() NULL,
 	relid regclass NULL,
 	ctime timestamp DEFAULT now() NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS dml_log (
 	new_data jsonb NULL,
 	seq serial4 NOT NULL
 );
-CREATE INDEX audit_ctime_idx ON dml_log USING btree (ctime)
+CREATE INDEX audit_ctime_idx ON log_dml USING btree (ctime)
 ;
 
 ---
@@ -64,7 +64,7 @@ begin
        from info 
        into js;
       
-insert into dbms.ddl_log (ts,role,inet,app,tag,command,data)
+insert into dbms.log_ddl (ts,role,inet,app,tag,command,data)
 values (current_timestamp,
         current_role::regrole,
 		inet_client_addr(),
@@ -74,7 +74,7 @@ values (current_timestamp,
 end;
 $function$
 ;
-CREATE EVENT TRIGGER ddl_log ON ddl_command_end
+CREATE EVENT TRIGGER log_ddl ON ddl_command_end
 	EXECUTE FUNCTION dbms.trigger_ddl();
 
 -------------------------------------------------------
@@ -83,6 +83,7 @@ CREATE OR REPLACE FUNCTION trigger_dml()
  RETURNS trigger
  LANGUAGE plperlu
 AS $function$
+use strict;
 use JSON;
 
 my $log_table = ${$_TD->{args}}[0];
@@ -349,7 +350,7 @@ for my $i (@{$obj}) {
     my $keys = join(', ',@keys);
     my $vals = join(', ',@vals);
     if($action eq 'u' && @cond) {
-      my $sql="UPDATE $regclass SET ($keys) = ($vals) WHERE ".join(' AND ',@cond);
+      my $sql="UPDATE $regclass SET ($keys) = row($vals) WHERE ".join(' AND ',@cond);
       elog(NOTICE,$sql);
       my $rv=spi_exec_query($sql);
       $n+=$rv->{processed};

@@ -2,6 +2,6 @@ comment = 'DBMS super functions'
 default_version = 0.1
 relocatable = false
 superuser = yes
-requires='plpgsql,plperlu'
+requires='plpgsql,plperl,plperlu'
 schema = dbms
 
