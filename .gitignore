@@ -1,0 +1,6 @@
+*.o
+*.so
+*~
+/results/
+/*--*.sql
+electric-ddlx-*.sql

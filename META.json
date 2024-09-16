@@ -1,0 +1,51 @@
+{
+   "name": "dbms",
+   "abstract": "DBMS super functions",
+   "description": "A set of functionalities to aid database developers and administrators and such",
+   "version": "0.0.0",
+   "maintainer": [
+      "Ziga Kranjec <ziga@ljudmila.org>"
+   ],
+   "license": {
+      "PostgreSQL": "http://www.postgresql.org/about/licence"
+   },
+   "prereqs": {
+      "runtime": {
+         "requires": {
+            "plpgsql": 0,
+            "PostgreSQL": "10.0.0"
+         },
+         "recommends": {
+            "PostgreSQL": "16.0.0"
+         }
+      }
+   },
+   "provides": {
+     "pgddl": {
+       "file": "dbms.sql",
+       "docfile": "README.md",
+       "version": "0.0.0",
+       "abstract": "DBMS super functions"
+     }
+   },
+   "resources": {
+      "homepage": "https://github.com/lacanoid/pgddl/wiki",
+      "bugtracker": {
+         "web": "https://github.com/lacanoid/pgddl/issues"
+      },
+      "repository": {
+        "url":  "https://github.com/lacanoid/pgddl.git",
+        "web":  "https://github.com/lacanoid/pgddl",
+        "type": "git"
+      }
+   },
+   "generated_by": "Ziga Kranjec <ziga@ljudmila.org>",
+   "meta-spec": {
+      "version": "1.0.0",
+      "url": "http://pgxn.org/meta/spec.txt"
+   },
+   "tags": [
+      "administration",
+      "meta", "json"
+   ]
+}

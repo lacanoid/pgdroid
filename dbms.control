@@ -1,0 +1,7 @@
+comment = 'DBMS super functions'
+default_version = 0.0
+relocatable = false
+superuser = yes
+requires='plpgsql,plperlu'
+schema = dbms
+

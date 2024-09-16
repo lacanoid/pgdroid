@@ -1,0 +1,92 @@
+create table foo (
+    id serial primary key,
+    label text,
+    ctime timestamptz default now()
+);
+create trigger "$changed" after delete or update on foo 
+   for each row execute function dbms.trigger_dml('dbms.dml_log');
+insert into foo (label,ctime) values ('Hello world!','2001-01-01 00:00:00');
+update foo set label = 'New value';
+update foo set label = 'Even more new value';
+select relid,usename,pkey,old_data,new_data 
+  from dbms.dml_log order by ctime;
+ relid | usename |    pkey     |         old_data          |             new_data             
+-------+---------+-------------+---------------------------+----------------------------------
+ foo   | root    | {"id": "1"} | {"label": "Hello world!"} | {"label": "New value"}
+ foo   | root    | {"id": "1"} | {"label": "New value"}    | {"label": "Even more new value"}
+(2 rows)
+
+select dbms.json_insert('foo', '{"id":-1,"label":"Deuxieme labelle"}', true);
+NOTICE:  INSERT INTO foo (id, label) VALUES ('-1', 'Deuxieme labelle')
+ json_insert 
+-------------
+           1
+(1 row)
+
+select dbms.json_insert('foo', '{"id":-2,"label":"Troixeme labelle","sublabel":"Ca ira ..."}', true);
+NOTICE:  ALTER TABLE foo ADD sublabel text
+NOTICE:  INSERT INTO foo (id, label, sublabel) VALUES ('-2', 'Troixeme labelle', 'Ca ira ...')
+ json_insert 
+-------------
+           1
+(1 row)
+
+select dbms.json_save('foo', '{"id":-3,"label":"Number 4","sublabel":"...."}', true);
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ('-3', 'Number 4', '....') WHERE id='-3'
+NOTICE:  INSERT INTO foo (id, label, sublabel) VALUES ('-3', 'Number 4', '....')
+ json_save 
+-----------
+         1
+(1 row)
+
+select dbms.json_save('foo', '{"id":-3,"label":"Number 5","sublabel":"12345"}', true);
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ('-3', 'Number 5', '12345') WHERE id='-3'
+ json_save 
+-----------
+         1
+(1 row)
+
+select dbms.json_save2('foo', '{"id":-3,"label":"Number 6","sublabel":"......"}', true);
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ('-3', 'Number 6', '......') WHERE id='-3'
+ json_save2 
+------------
+          1
+(1 row)
+
+select dbms.json_save2('foo', '{"id":-3,"label":"Number 7","sublabel":"1234567"}', true);
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ('-3', 'Number 7', '1234567') WHERE id='-3'
+ json_save2 
+------------
+          1
+(1 row)
+
+select dbms.json_insert('foo', '{"label":"Krneki","type":"improved"}',true);
+NOTICE:  ALTER TABLE foo ADD type text
+NOTICE:  INSERT INTO foo (label, type) VALUES ('Krneki', 'improved')
+ json_insert 
+-------------
+           1
+(1 row)
+
+select dbms.json_save2('foo', '{"id":2, "label":"Xrneki","type":"improved+","sublabel":"that"}',true);
+NOTICE:  UPDATE foo SET (id, label, sublabel, type) = ('2', 'Xrneki', 'that', 'improved+') WHERE id='2'
+ json_save2 
+------------
+          1
+(1 row)
+
+#select dbms.json_save2('foo', '{"id":2, "label":"Zrneki","type":"+improved+","sublabel":"that","types":["obi","wan","kenobi"]}',true); --broken
+ERROR:  syntax error at or near "#"
+LINE 1: #select dbms.json_save2('foo', '{"id":2, "label":"Zrneki","t...
+        ^
+select relid,usename,pkey,old_data,new_data from dbms.dml_log;
+ relid | usename |     pkey     |                         old_data                          |                           new_data                           
+-------+---------+--------------+-----------------------------------------------------------+--------------------------------------------------------------
+ foo   | root    | {"id": "1"}  | {"label": "Hello world!"}                                 | {"label": "New value"}
+ foo   | root    | {"id": "1"}  | {"label": "New value"}                                    | {"label": "Even more new value"}
+ foo   | root    | {"id": "-3"} | {"label": "Number 4", "sublabel": "...."}                 | {"label": "Number 5", "sublabel": "12345"}
+ foo   | root    | {"id": "-3"} | {"label": "Number 5", "sublabel": "12345"}                | {"label": "Number 6", "sublabel": "......"}
+ foo   | root    | {"id": "-3"} | {"label": "Number 6", "sublabel": "......"}               | {"label": "Number 7", "sublabel": "1234567"}
+ foo   | root    | {"id": "2"}  | {"type": "improved", "label": "Krneki", "sublabel": null} | {"type": "improved+", "label": "Xrneki", "sublabel": "that"}
+(6 rows)
+

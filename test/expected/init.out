@@ -1,0 +1,23 @@
+CREATE EXTENSION dbms cascade;
+NOTICE:  installing required extension "plperlu"
+\pset tuples_only
+\dx+ dbms
+ event trigger ddl_log
+ function dbms.attribute_names(regclass,smallint[])
+ function dbms.attribute_types(regclass,smallint[])
+ function dbms.get_proc_info(text,text)
+ function dbms.json_insert(regclass,text,boolean)
+ function dbms.json_save2(regclass,text,boolean)
+ function dbms.json_save3(regclass,text,boolean,boolean)
+ function dbms.json_save(regclass,text,boolean)
+ function dbms.pg_get_columns(regclass)
+ function dbms.primary_key(regclass)
+ function dbms.trigger_ddl()
+ function dbms.trigger_dml()
+ sequence dbms.dml_log_seq_seq
+ table dbms.ddl_log
+ table dbms.dml_log
+ type dbms.sql_identifier
+ view dbms.catalog_usage
+ view dbms.unique_keys
+
