@@ -5,9 +5,9 @@ NOTICE:  installing required extension "plperlu"
  event trigger ddl_log
  function attribute_names(regclass,smallint[])
  function attribute_types(regclass,smallint[])
+ function describe(regclass)
  function get_proc_info(text,text)
  function json_save(regclass,text,boolean,boolean)
- function pg_get_columns(regclass)
  function primary_key(regclass)
  function trigger_ddl()
  function trigger_dml()

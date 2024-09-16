@@ -193,7 +193,7 @@ CREATE DOMAIN "sql_identifier" AS character varying
 COMMENT ON TYPE "sql_identifier" IS 'SQL object identifier';
 
 
-CREATE OR REPLACE FUNCTION pg_get_columns(regclass, 
+CREATE OR REPLACE FUNCTION describe(regclass, 
 OUT namespace name, OUT class_name name, OUT name name, 
 OUT ord smallint, OUT type text, OUT size integer, OUT not_null boolean, 
 OUT "default" text, OUT comment text, OUT primary_key name, OUT ndims integer, 
@@ -289,7 +289,7 @@ my %nid;
 my %q=(
  'primary key'    => spi_prepare('select * from unnest(dbms.primary_key($1)) as name','regclass'),
  'unique keys'    => spi_prepare('select * from dbms.unique_keys where sysid=$1','regclass'),
- 'columns'        => spi_prepare('select * from dbms.pg_get_columns($1)','regclass'),
+ 'columns'        => spi_prepare('select * from dbms.describe($1)','regclass'),
 );
 
 my %cols;
