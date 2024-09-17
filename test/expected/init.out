@@ -7,15 +7,20 @@ NOTICE:  installing required extension "plperlu"
  function attribute_names(regclass,smallint[])
  function attribute_types(regclass,smallint[])
  function describe(regclass)
+ function eval(sql_expression)
+ function execute(sql_statement)
  function get_proc_info(text,text)
  function json_save(regclass,text,boolean,boolean)
  function primary_key(regclass)
+ function sql_identifier(name,name)
  function trigger_ddl()
  function trigger_dml()
  sequence log_dml_seq_seq
  table log_ddl
  table log_dml
+ type sql_expression
  type sql_identifier
+ type sql_statement
  view catalog_usage
  view unique_keys
 

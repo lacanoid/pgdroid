@@ -191,9 +191,20 @@ select attribute_names
 ;
 ------------------------------------------------------
 
-CREATE DOMAIN "sql_identifier" AS character varying
-	COLLATE "default";
-COMMENT ON TYPE "sql_identifier" IS 'SQL object identifier';
+CREATE DOMAIN sql_identifier AS text COLLATE "default";
+COMMENT ON TYPE sql_identifier IS 'SQL object identifier';
+CREATE DOMAIN sql_expression  AS text COLLATE "default";
+COMMENT ON TYPE sql_expression IS 'SQL expression';
+CREATE DOMAIN sql_statement  AS text COLLATE "default";
+COMMENT ON TYPE sql_statement IS 'SQL statement';
+
+CREATE OR REPLACE FUNCTION sql_identifier(name, name)
+ RETURNS sql_identifier LANGUAGE sql STABLE
+AS $$
+SELECT cast(
+  coalesce(quote_ident(nullif($1 , current_schema()))||'.', '') || quote_ident($2)
+as dbms.sql_identifier);
+$$;
 
 
 CREATE OR REPLACE FUNCTION describe(regclass, 
@@ -249,6 +260,40 @@ AS $function$
   AND NOT a.attisdropped AND has_table_privilege(c.oid, 'select'::text) AND has_schema_privilege(s.oid, 'usage'::text)
   AND c.oid = $1
   ORDER BY s.nspname, c.relname, a.attnum;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION execute(sql_statement)
+ RETURNS integer
+ LANGUAGE plpgsql
+ STRICT AS $$
+DECLARE 
+   body ALIAS FOR $1; 
+   result INT; 
+ BEGIN 
+   RAISE NOTICE 'Execute: %', body; 
+   EXECUTE body; 
+   GET DIAGNOSTICS result = ROW_COUNT; 
+   RETURN result; 
+END; 
+$$
+;
+
+CREATE OR REPLACE FUNCTION eval(sql_expression)
+ RETURNS text
+ LANGUAGE plpgsql
+ STRICT
+AS $function$DECLARE 
+  body ALIAS FOR $1; 
+  r RECORD; 
+  result text; 
+BEGIN 
+ result = ''; 
+ FOR r IN EXECUTE 'SELECT ('||body||')::text AS text' LOOP 
+  result = result || r.text; 
+ END LOOP; 
+ RETURN result; 
+END; 
 $function$
 ;
 
