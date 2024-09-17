@@ -158,23 +158,25 @@ $function$
 ;
 
 
-CREATE OR REPLACE VIEW unique_keys
-AS SELECT s.nspname AS table_schema,
-    c.relname AS table_name,
-    c2.conname AS constraint_name,
-        CASE c2.contype
-            WHEN 'p'::"char" THEN 'PRIMARY KEY'::text
-            WHEN 'u'::"char" THEN 'UNIQUE'::text
-            ELSE NULL::text
-        END AS constraint_type,
-    attribute_names(c.oid::regclass, c2.conkey) AS attribute_names,
-    attribute_types(c.oid::regclass, c2.conkey) AS attribute_types,
-    c.oid AS sysid
-   FROM pg_constraint c2
-     JOIN pg_class c ON c.oid = c2.conrelid
-     JOIN pg_namespace s ON s.oid = c.relnamespace
-     JOIN pg_namespace s2 ON s2.oid = c2.connamespace
-  WHERE (c.relkind = ANY (ARRAY['r'::"char", 'v'::"char", ''::"char"])) AND (c2.contype = ANY (ARRAY['p'::"char", 'u'::"char"]))
+CREATE OR REPLACE VIEW unique_keys AS 
+SELECT s.nspname AS table_schema,
+       c.relname AS table_name,
+       ci.relname as index_name,
+       c2.conname AS constraint_name,
+       CASE c2.contype
+        WHEN 'p'::"char" THEN 'PRIMARY KEY'::text
+        WHEN 'u'::"char" THEN 'UNIQUE'::text
+        ELSE c2.contype::text
+       END AS constraint_type,
+       attribute_names(c.oid::regclass, indkey) AS attribute_names,
+       attribute_types(c.oid::regclass, indkey) AS attribute_types,
+       c.oid AS objid
+  FROM pg_index i join pg_class ci on ci.oid = i.indexrelid
+  left join pg_constraint c2 on c2.conindid = i.indexrelid
+  JOIN pg_class c ON c.oid = i.indrelid
+  JOIN pg_namespace s ON s.oid = c.relnamespace
+ where i.indisunique and s.oid is distinct from 'pg_toast'::regnamespace
+--  WHERE (c.relkind = ANY (ARRAY['r'::"char", 'v'::"char", ''::"char"])) AND (c2.contype = ANY (ARRAY['p'::"char", 'u'::"char"]))
 ;
 
 CREATE OR REPLACE FUNCTION primary_key(my_class regclass)
@@ -183,7 +185,7 @@ CREATE OR REPLACE FUNCTION primary_key(my_class regclass)
 AS $function$
 select attribute_names 
   from dbms.unique_keys
- where sysid=$1
+ where objid=$1
    and constraint_type='PRIMARY KEY'
  $function$
 ;
@@ -289,7 +291,7 @@ my $n=0;
 my %nid;
 my %q=(
  'primary key'    => spi_prepare('select * from unnest(dbms.primary_key($1)) as name','regclass'),
- 'unique keys'    => spi_prepare('select * from dbms.unique_keys where sysid=$1','regclass'),
+ 'unique keys'    => spi_prepare('select * from dbms.unique_keys where objid=$1','regclass'),
  'columns'        => spi_prepare('select * from dbms.describe($1)','regclass'),
 );
 
@@ -350,7 +352,7 @@ for my $i (@{$obj}) {
     my $keys = join(', ',@keys);
     my $vals = join(', ',@vals);
     if($action eq 'u' && @cond) {
-      my $sql="UPDATE $regclass SET ($keys) = row($vals) WHERE ".join(' AND ',@cond);
+      my $sql="UPDATE $regclass SET ($keys) = ROW($vals) WHERE ".join(' AND ',@cond);
       elog(NOTICE,$sql);
       my $rv=spi_exec_query($sql);
       $n+=$rv->{processed};

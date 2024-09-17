@@ -19,7 +19,7 @@ select relid,usename,pkey,old_data,new_data
 (2 rows)
 
 select dbms.json_save('foo', '{"id":-1,"label":"Deuxieme labelle"}', true, true);
-NOTICE:  UPDATE foo SET (id, label) = row('-1', 'Deuxieme labelle') WHERE id='-1'
+NOTICE:  UPDATE foo SET (id, label) = ROW('-1', 'Deuxieme labelle') WHERE id='-1'
 NOTICE:  INSERT INTO foo (id, label) VALUES ('-1', 'Deuxieme labelle')
  json_save 
 -----------
@@ -28,7 +28,7 @@ NOTICE:  INSERT INTO foo (id, label) VALUES ('-1', 'Deuxieme labelle')
 
 select dbms.json_save('foo', '{"id":-2,"label":"Troixeme labelle","sublabel":"Ca ira ..."}', true, true);
 NOTICE:  ALTER TABLE foo ADD sublabel text
-NOTICE:  UPDATE foo SET (id, label, sublabel) = row('-2', 'Troixeme labelle', 'Ca ira ...') WHERE id='-2'
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ROW('-2', 'Troixeme labelle', 'Ca ira ...') WHERE id='-2'
 NOTICE:  INSERT INTO foo (id, label, sublabel) VALUES ('-2', 'Troixeme labelle', 'Ca ira ...')
  json_save 
 -----------
@@ -36,7 +36,7 @@ NOTICE:  INSERT INTO foo (id, label, sublabel) VALUES ('-2', 'Troixeme labelle',
 (1 row)
 
 select dbms.json_save('foo', '{"id":-3,"label":"Number 4","sublabel":"...."}', true);
-NOTICE:  UPDATE foo SET (id, label, sublabel) = row('-3', 'Number 4', '....') WHERE id='-3'
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ROW('-3', 'Number 4', '....') WHERE id='-3'
 NOTICE:  INSERT INTO foo (id, label, sublabel) VALUES ('-3', 'Number 4', '....')
  json_save 
 -----------
@@ -44,21 +44,21 @@ NOTICE:  INSERT INTO foo (id, label, sublabel) VALUES ('-3', 'Number 4', '....')
 (1 row)
 
 select dbms.json_save('foo', '{"id":-3,"label":"Number 5","sublabel":"12345"}', true);
-NOTICE:  UPDATE foo SET (id, label, sublabel) = row('-3', 'Number 5', '12345') WHERE id='-3'
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ROW('-3', 'Number 5', '12345') WHERE id='-3'
  json_save 
 -----------
          1
 (1 row)
 
 select dbms.json_save('foo', '{"id":-3,"label":"Number 6","sublabel":"......"}', false, true);
-NOTICE:  UPDATE foo SET (id, label, sublabel) = row('-3', 'Number 6', '......') WHERE id='-3'
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ROW('-3', 'Number 6', '......') WHERE id='-3'
  json_save 
 -----------
          1
 (1 row)
 
 select dbms.json_save('foo', '{"id":-3,"label":"Number 7","sublabel":"1234567"}', false, true);
-NOTICE:  UPDATE foo SET (id, label, sublabel) = row('-3', 'Number 7', '1234567') WHERE id='-3'
+NOTICE:  UPDATE foo SET (id, label, sublabel) = ROW('-3', 'Number 7', '1234567') WHERE id='-3'
  json_save 
 -----------
          1
@@ -66,7 +66,7 @@ NOTICE:  UPDATE foo SET (id, label, sublabel) = row('-3', 'Number 7', '1234567')
 
 select dbms.json_save('foo', '{"label":"Krneki","type":"improved"}',true,true);
 NOTICE:  ALTER TABLE foo ADD type text
-NOTICE:  UPDATE foo SET (label, type) = row('Krneki', 'improved') WHERE label='Krneki'
+NOTICE:  UPDATE foo SET (label, type) = ROW('Krneki', 'improved') WHERE label='Krneki'
 NOTICE:  INSERT INTO foo (label, type) VALUES ('Krneki', 'improved')
  json_save 
 -----------
@@ -74,7 +74,7 @@ NOTICE:  INSERT INTO foo (label, type) VALUES ('Krneki', 'improved')
 (1 row)
 
 select dbms.json_save('foo', '{"id":2, "label":"Xrneki","type":"improved+","sublabel":"that"}',false,true);
-NOTICE:  UPDATE foo SET (id, label, sublabel, type) = row('2', 'Xrneki', 'that', 'improved+') WHERE id='2'
+NOTICE:  UPDATE foo SET (id, label, sublabel, type) = ROW('2', 'Xrneki', 'that', 'improved+') WHERE id='2'
  json_save 
 -----------
          1
@@ -82,7 +82,7 @@ NOTICE:  UPDATE foo SET (id, label, sublabel, type) = row('2', 'Xrneki', 'that',
 
 -- select dbms.json_save('foo', '{"id":2, "label":"Zrneki","type":"+improved+","sublabel":"that","types":["obi","wan","kenobi"]}',true); --broken
 select dbms.json_save('foo', '{"label":"json_save3 test"}',true);
-NOTICE:  UPDATE foo SET (label) = row('json_save3 test') WHERE label='json_save3 test'
+NOTICE:  UPDATE foo SET (label) = ROW('json_save3 test') WHERE label='json_save3 test'
 NOTICE:  INSERT INTO foo (label) VALUES ('json_save3 test')
  json_save 
 -----------
@@ -90,7 +90,7 @@ NOTICE:  INSERT INTO foo (label) VALUES ('json_save3 test')
 (1 row)
 
 select dbms.json_save('foo', '{"id":3,"label":"json_save3 test ++"}',true);
-NOTICE:  UPDATE foo SET (id, label) = row('3', 'json_save3 test ++') WHERE id='3'
+NOTICE:  UPDATE foo SET (id, label) = ROW('3', 'json_save3 test ++') WHERE id='3'
  json_save 
 -----------
          1
@@ -98,7 +98,7 @@ NOTICE:  UPDATE foo SET (id, label) = row('3', 'json_save3 test ++') WHERE id='3
 
 select dbms.json_save('foo', '{"id":3,"label":"json_save3 test +++","subtype":"extra"}',true,true);
 NOTICE:  ALTER TABLE foo ADD subtype text
-NOTICE:  UPDATE foo SET (id, label, subtype) = row('3', 'json_save3 test +++', 'extra') WHERE id='3'
+NOTICE:  UPDATE foo SET (id, label, subtype) = ROW('3', 'json_save3 test +++', 'extra') WHERE id='3'
  json_save 
 -----------
          1
