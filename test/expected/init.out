@@ -22,5 +22,8 @@ NOTICE:  installing required extension "plperlu"
  type sql_identifier
  type sql_statement
  view catalog_usage
+ view functions
+ view sql_advice_functions_definer
+ view sql_advice_functions_untrusted
  view unique_keys
 

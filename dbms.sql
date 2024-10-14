@@ -1,43 +1,25 @@
+--------------------------------------------------------------- ---------------
 --
 --  DBMS administration functions
 --  version 0.1 lacanoid@ljudmila.org
 --
----------------------------------------------------
+--------------------------------------------------------------- ---------------
 
 SET client_min_messages = warning;
 SET search_path = dbms;
 
----------------------------------------------------
-
--- DROP FUNCTION notice_ddl();
+--------------------------------------------------------------- ---------------
 
 CREATE TABLE IF NOT EXISTS log_ddl (
-	ts timestamptz NULL,
-	"role" text NULL,
-	inet inet NULL,
-	app text NULL,
-	tag text NULL,
-	command text NULL,
-	"data" jsonb NULL
+  ts timestamptz NULL,
+  "role" text NULL,
+  inet inet NULL,
+  app text NULL,
+  tag text NULL,
+  command text NULL,
+  "data" jsonb NULL
 );
 
--- atom.audit definition
-
-CREATE TABLE IF NOT EXISTS log_dml (
-	txid int8 DEFAULT txid_current() NULL,
-	relid regclass NULL,
-	ctime timestamp DEFAULT now() NULL,
-  pid integer default pg_backend_pid(),
-	usename regrole DEFAULT current_role::regrole NULL,
-	pkey jsonb NULL,
-	old_data jsonb NULL,
-	new_data jsonb NULL,
-	seq serial4 NOT NULL
-);
-CREATE INDEX audit_ctime_idx ON log_dml USING btree (ctime)
-;
-
----
 CREATE OR REPLACE FUNCTION trigger_ddl()
  RETURNS event_trigger
  LANGUAGE plpgsql
@@ -46,38 +28,51 @@ declare
   js json;
   qq text;
 begin
-	qq := trim(both from current_query());
+  qq := trim(both from current_query());
 
-	if (
-	  qq ~* '^refresh\s+materialized\s+view\s+[^;]+;?\s*$'
-	  or TG_TAG like 'REFRESH MATERIALIZED VIEW'
-	)
-	then return; end if;
+  if (
+    qq ~* '^refresh\s+materialized\s+view\s+[^;]+;?\s*$'
+    or TG_TAG like 'REFRESH MATERIALIZED VIEW'
+  )
+  then return; end if;
 
-	with info as (
+  with info as (
       select classid::regclass,objid,objsubid,
              object_type,schema_name,object_identity,
              in_extension
         from pg_event_trigger_ddl_commands()
     )
-  	select json_agg(row_to_json(info)) 
+    select json_agg(row_to_json(info)) 
        from info 
        into js;
       
 insert into dbms.log_ddl (ts,role,inet,app,tag,command,data)
 values (current_timestamp,
         current_role::regrole,
-		inet_client_addr(),
-		(select setting from pg_settings where name='application_name'),
-		TG_TAG,qq,js
+    inet_client_addr(),
+    (select setting from pg_settings where name='application_name'),
+    TG_TAG,qq,js
        );
 end;
 $function$
 ;
 CREATE EVENT TRIGGER log_ddl ON ddl_command_end
-	EXECUTE FUNCTION dbms.trigger_ddl();
+  EXECUTE FUNCTION dbms.trigger_ddl();
 
--------------------------------------------------------
+--------------------------------------------------------------- ---------------
+
+CREATE TABLE IF NOT EXISTS log_dml (
+  txid int8 DEFAULT txid_current() NULL,
+  relid regclass NULL,
+  ctime timestamp DEFAULT now() NULL,
+  pid integer default pg_backend_pid(),
+  usename regrole DEFAULT current_role::regrole NULL,
+  pkey jsonb NULL,
+  old_data jsonb NULL,
+  new_data jsonb NULL,
+  seq serial4 NOT NULL
+);
+CREATE INDEX audit_ctime_idx ON log_dml USING btree (ctime);
 
 CREATE OR REPLACE FUNCTION trigger_dml()
  RETURNS trigger
@@ -107,8 +102,8 @@ if(!%{$new_data}) { elog NOTICE,'SKIP'; return 'SKIP'; }
 
 my @pkey; my $key={};
 my $pkey = spi_exec_prepared(
-	spi_prepare('select * from unnest(dbms.primary_key($1)) as name','oid'),
-	$regclass)->{rows};
+  spi_prepare('select * from unnest(dbms.primary_key($1)) as name','oid'),
+  $regclass)->{rows};
 for my $i (@{$pkey}) { $key->{$i->{'name'}}=$old->{$i->{'name'}}; }
 # elog NOTICE,encode_json($key);
 
@@ -121,7 +116,8 @@ spi_exec_prepared($p,$regclass,encode_json($key),$old_data,$new_data);
 return;
 $function$
 ;
--- DROP FUNCTION attribute_names(regclass, _int2);
+
+--------------------------------------------------------------- ---------------
 
 CREATE OR REPLACE FUNCTION attribute_names(regclass, smallint[])
  RETURNS name[]
@@ -138,7 +134,8 @@ from (
 ) as n
 $function$
 ;
--- DROP FUNCTION attribute_types(regclass, _int2);
+
+--------------------------------------------------------------- ---------------
 
 CREATE OR REPLACE FUNCTION attribute_types(regclass, smallint[])
  RETURNS text[]
@@ -157,6 +154,7 @@ from (
 $function$
 ;
 
+--------------------------------------------------------------- ---------------
 
 CREATE OR REPLACE VIEW unique_keys AS 
 SELECT s.nspname AS table_schema,
@@ -176,8 +174,10 @@ SELECT s.nspname AS table_schema,
   JOIN pg_class c ON c.oid = i.indrelid
   JOIN pg_namespace s ON s.oid = c.relnamespace
  where i.indisunique and s.oid is distinct from 'pg_toast'::regnamespace
---  WHERE (c.relkind = ANY (ARRAY['r'::"char", 'v'::"char", ''::"char"])) AND (c2.contype = ANY (ARRAY['p'::"char", 'u'::"char"]))
+   and (c2.contype is null or c2.contype = ANY (ARRAY['p'::"char", 'u'::"char"]))
+--  WHERE (c.relkind = ANY (ARRAY['r'::"char", 'v'::"char", ''::"char"]))
 ;
+COMMENT ON VIEW unique_keys IS 'Unique keys by which table rows can be addressed';
 
 CREATE OR REPLACE FUNCTION primary_key(my_class regclass)
  RETURNS name[]
@@ -189,7 +189,8 @@ select attribute_names
    and constraint_type='PRIMARY KEY'
  $function$
 ;
-------------------------------------------------------
+
+--------------------------------------------------------------- ---------------
 
 CREATE DOMAIN sql_identifier AS text COLLATE "default";
 COMMENT ON TYPE sql_identifier IS 'SQL object identifier';
@@ -206,6 +207,8 @@ SELECT cast(
 as dbms.sql_identifier);
 $$;
 
+
+--------------------------------------------------------------- ---------------
 
 CREATE OR REPLACE FUNCTION describe(regclass, 
 OUT namespace name, OUT class_name name, OUT name name, 
@@ -263,10 +266,10 @@ AS $function$
 $function$
 ;
 
+--------------------------------------------------------------- ---------------
+
 CREATE OR REPLACE FUNCTION execute(sql_statement)
- RETURNS integer
- LANGUAGE plpgsql
- STRICT AS $$
+ RETURNS integer LANGUAGE plpgsql STRICT AS $$
 DECLARE 
    body ALIAS FOR $1; 
    result INT; 
@@ -276,14 +279,13 @@ DECLARE
    GET DIAGNOSTICS result = ROW_COUNT; 
    RETURN result; 
 END; 
-$$
-;
+$$;
+
+--------------------------------------------------------------- ---------------
 
 CREATE OR REPLACE FUNCTION eval(sql_expression)
- RETURNS text
- LANGUAGE plpgsql
- STRICT
-AS $function$DECLARE 
+ RETURNS text LANGUAGE plpgsql STRICT AS $$
+DECLARE 
   body ALIAS FOR $1; 
   r RECORD; 
   result text; 
@@ -294,8 +296,9 @@ BEGIN
  END LOOP; 
  RETURN result; 
 END; 
-$function$
-;
+$$;
+
+--------------------------------------------------------------- ---------------
 
 CREATE OR REPLACE VIEW catalog_usage
 AS SELECT tab.sql_identifier,
@@ -309,15 +312,13 @@ AS SELECT tab.sql_identifier,
            FROM information_schema.tables
           WHERE tables.table_type::text = 'BASE TABLE'::text AND tables.table_schema::text !~~ 'pg_catalog'::text) tab
      JOIN pg_class c ON c.oid = tab.sql_identifier::regclass::oid
-  ORDER BY (pg_total_relation_size(tab.sql_identifier::regclass)) DESC
-;
+  ORDER BY (pg_total_relation_size(tab.sql_identifier::regclass)) DESC;
 
+--------------------------------------------------------------- ---------------
 --- JSON update stuff
 
 CREATE OR REPLACE FUNCTION json_save(my_regclass regclass, my_json text, do_insert boolean DEFAULT true, do_extend boolean DEFAULT false)
- RETURNS bigint
- LANGUAGE plperlu
-AS $function$
+ RETURNS bigint LANGUAGE plperlu AS $function$
 use strict;
 use JSON;
 my ($regclass,$json,$do_insert,$extend)=@_;
@@ -328,7 +329,7 @@ my $obj=JSON->new->allow_nonref->decode($json);
 if(!defined($obj)) { elog(ERROR,'Empty JSON'); return undef; } 
 if(ref($obj) ne 'ARRAY') { 
    if(ref($obj) ne 'HASH') {
-	elog(ERROR,'JSON neither ARRAY no HASH'); return undef; 
+  elog(ERROR,'JSON neither ARRAY no HASH'); return undef; 
    } else { $obj = [$obj]; }
 }
 
@@ -412,10 +413,14 @@ for my $i (@{$obj}) {
   }
 } # for $i
 return $n;
-$function$
-;
+$function$;
 
-CREATE OR REPLACE FUNCTION get_proc_info(namespace text, name text, OUT sysid oid, OUT sql_identifier text, OUT argnames text[], OUT argtypes text[], OUT comment text, OUT has_http_acl boolean)
+--------------------------------------------------------------- ---------------
+
+CREATE OR REPLACE FUNCTION get_proc_info(namespace text, name text, 
+ OUT sysid oid, OUT sql_identifier text, 
+ OUT argnames text[], OUT argtypes text[], OUT comment text, 
+ OUT has_http_acl boolean)
  RETURNS record
  LANGUAGE plpgsql
 AS $function$
@@ -467,5 +472,87 @@ begin
 
  return;
 end
-$function$
-;
+$function$;
+
+--------------------------------------------------------------- ---------------
+
+CREATE OR REPLACE VIEW "functions"
+AS SELECT p.oid AS sysid,
+    s.nspname AS namespace,
+    p.proname AS name,
+    pg_description.description AS comment,
+    u.rolname AS owner,
+    p.oid::regprocedure::dbms.sql_identifier AS sql_identifier,
+    l.lanname AS language,
+        CASE p.provolatile
+            WHEN 'i'::"char" THEN 'IMMUTABLE'::text
+            WHEN 's'::"char" THEN 'STABLE'::text
+            WHEN 'v'::"char" THEN 'VOLATILE'::text
+            ELSE NULL::text
+        END AS attributes,
+    p.proretset AS retset,
+    p.prorettype = 'trigger'::regtype::oid AS is_trigger,
+    p.prorettype::regtype::text AS returns,
+    oidvectortypes(p.proargtypes) AS arguments,
+    p.prosrc AS definition,
+        CASE p.prosecdef
+            WHEN true THEN 'DEFINER'::text
+            ELSE 'INVOKER'::text
+        END AS security,
+        CASE p.proisstrict
+            WHEN true THEN 'STRICT'::text
+            ELSE ''::text
+        END AS is_strict,
+        CASE p.proisstrict
+            WHEN true THEN 'NO'::text
+            WHEN false THEN 'YES'::text
+            ELSE NULL::text
+        END AS is_null_call,
+    p.proargtypes AS argtypes,
+    p.proacl
+   FROM pg_proc p
+     LEFT JOIN pg_namespace s ON s.oid = p.pronamespace
+     LEFT JOIN pg_language l ON l.oid = p.prolang
+     LEFT JOIN pg_roles u ON p.proowner = u.oid
+     LEFT JOIN pg_description ON p.oid = pg_description.objoid;
+GRANT SELECT on "functions" to PUBLIC;
+
+--------------------------------------------------------------- ---------------
+
+CREATE OR REPLACE VIEW sql_advice_functions_definer
+AS SELECT 
+    p.pronamespace::regnamespace AS namespace,
+    p.proname AS name,
+    p.proowner::regrole AS owner,
+        CASE
+            WHEN p.prosecdef THEN 'DEFINER'::text
+            ELSE 'INVOKER'::text
+        END AS security,
+    l.lanname AS language,
+    has_function_privilege('public'::name, p.oid::regclass::oid, 'execute'::text) AS public_exec,
+    ( SELECT pg_options_to_table.option_value
+           FROM pg_options_to_table(p.proconfig) pg_options_to_table(option_name, option_value)
+          WHERE pg_options_to_table.option_name = 'search_path'::text) AS search_path,
+    p.oid::regprocedure AS sql_identifier
+   FROM pg_proc p
+   JOIN pg_language l ON l.oid = p.prolang
+  WHERE p.prosecdef;
+
+--------------------------------------------------------------- ---------------
+
+CREATE OR REPLACE VIEW dbms.sql_advice_functions_untrusted
+AS SELECT f.owner,
+    f.security,
+    f.language,
+    f.sql_identifier,
+    f.namespace,
+    f.name,
+    f.sysid,
+    (('REVOKE ALL ON FUNCTION '::text || f.sql_identifier::text) || 
+       ' FROM PUBLIC'::text)::dbms.sql_statement AS sql_advice,
+    f.comment
+   FROM dbms.functions f
+   JOIN pg_language l ON l.lanname = f.language
+   JOIN pg_user u ON u.usename = f.owner
+  WHERE NOT l.lanpltrusted AND l.lanispl AND NOT u.usesuper;
+
