@@ -1,0 +1,83 @@
+#!/usr/bin/perl
+# pg_mvubot - PostgreSQL materialied view updater bot
+# version 0.24 by lacanoid@ljudmila.org
+
+
+use strict;
+use DBI;
+use JSON;
+use Getopt::Std;
+
+our $opt_t = 1;  # show timing 
+
+getopt('hpdUT');
+
+our $opt_h = $opt_h || $ENV{PGHOST};
+our $opt_p = $opt_p || $ENV{PGPORT};
+our $opt_d = $opt_d || $ARGV[0] || $ENV{PGDATABASE};
+our $opt_U = $opt_U || $ARGV[1] || $ENV{PGUSER};
+our $opt_T = $opt_T || '1';
+
+our $dsn = "dbi:Pg:";
+    $dsn .= "host=$opt_h;" if(defined($opt_h));
+    $dsn .= "port=$opt_p;" if(defined($opt_p));
+    $dsn .= "dbname=$opt_d;" if(defined($opt_d));
+    $dsn .= "user=$opt_U;" if(defined($opt_U));
+
+if($opt_t) { use Time::HiRes qw(gettimeofday tv_interval); }
+
+main();
+exit;
+
+sub main {
+    my $dbh;
+
+    print "DSN $dsn\n";
+     $dbh = DBI->connect($dsn);
+    if(!$dbh) { die("Database not available"); }
+
+    $dbh->do(qq{LISTEN mview_refresh});
+    my $qexists = $dbh->prepare(q{
+        with c as (select oid from pg_class where oid::regclass::text = $1 and relkind = 'm')
+         select c.oid::regclass as regclass, 
+                exists (select oid from pg_index where indrelid = c.oid and indisvalid and indisunique) as hasindex
+           from c
+        }
+    );
+
+    while(1) {
+        my $sleepy = 1;
+        my @mvs; my %mvs;
+        while(my $not = $dbh->pg_notifies) {
+            my $viewname = $not->[2];
+            next unless length($viewname) > 0;
+            my $rc = $qexists->execute($viewname);
+            my $r = $qexists->fetchrow_hashref;
+            if($r->{regclass}) {
+                $viewname = $r->{regclass};
+
+                my $s = "REFRESH MATERIALIZED VIEW ".
+                         ($r->{hasindex} ? "CONCURRENTLY " : "").
+                         $viewname;
+                if(!defined($mvs{$viewname})) {
+                    $mvs{$viewname} = $s;
+                    push @mvs, $viewname;
+                }
+                $sleepy = 0;
+            } else {
+                print("ENOENT $viewname\n");
+            }
+        }
+        if(@mvs) {
+            while(my $mv = shift @mvs) {
+                my $s = $mvs{$mv};
+                my $t0; my $dt;
+                if($opt_t) { $t0 = [gettimeofday]; }
+                $dbh->do($s);
+                if($opt_t) { $dt = tv_interval ( $t0, [gettimeofday] ); }
+                print "$s".($opt_t ? " /* $dt */" : "") ."\n";
+            }
+        }
+        if($sleepy) { sleep($opt_T); }
+    }
+}
